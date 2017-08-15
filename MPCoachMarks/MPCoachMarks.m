@@ -12,12 +12,12 @@
 static const CGFloat kAnimationDuration = 0.3f;
 static const CGFloat kCutoutRadius = 5.0f;
 static const CGFloat kMaxLblWidth = 230.0f;
-static const CGFloat kLblSpacing = 35.0f;
+static const CGFloat kLblSpacing = 30.0f;
 static const CGFloat kLabelMargin = 5.0f;
 static const CGFloat kMaskAlpha = 0.75f;
 static const BOOL kEnableContinueLabel = YES;
 static const BOOL kEnableSkipButton = YES;
-NSString *const kSkipButtonText = @"Skip";
+NSString *const kSkipButtonText = @"スキップ";
 NSString *const kContinueLabelText = @"Tap to continue";
 
 @implementation MPCoachMarks {
@@ -77,7 +77,13 @@ NSString *const kContinueLabelText = @"Tap to continue";
     return self;
 }
 
+
 - (void)setup {
+    self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleBottomMargin |
+    UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin |
+    UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
+    
+    [[UIDevice currentDevice] beginGeneratingDeviceOrientationNotifications];
     // Default
     self.animationDuration = kAnimationDuration;
     self.cutoutRadius = kCutoutRadius;
@@ -116,11 +122,22 @@ NSString *const kContinueLabelText = @"Tap to continue";
     self.hidden = YES;
 }
 
+- (void)animateCutoutToRect:(CGRect)rect withShape:(MaskShape)shape frame:(CGRect)frame{
+    
+    self.arrowImage.alpha = .0f;
+    [self.arrowImage removeFromSuperview];
+    self.arrowImage = nil;
+    self.lblCaption.alpha = 0.0f;
+
+    [self animateCutoutToRect:rect withShape:shape];
+    [self goToCoachMarkIndexed:(markIndex) isRotated:YES];
+}
+
 #pragma mark - Cutout modify
 
 - (void)setCutoutToRect:(CGRect)rect withShape:(MaskShape)shape{
     // Define shape
-    UIBezierPath *maskPath = [UIBezierPath bezierPathWithRect:self.bounds];
+    UIBezierPath *maskPath = [UIBezierPath bezierPathWithRect:self.frame];
     UIBezierPath *cutoutPath;
     
     if (shape == SHAPE_CIRCLE)
@@ -139,16 +156,15 @@ NSString *const kContinueLabelText = @"Tap to continue";
 
 - (void)animateCutoutToRect:(CGRect)rect withShape:(MaskShape)shape{
     // Define shape
-    UIBezierPath *maskPath = [UIBezierPath bezierPathWithRect:self.bounds];
-    UIBezierPath *cutoutPath;
+    UIBezierPath *maskPath = [UIBezierPath bezierPathWithRect:self.frame];
     
+    UIBezierPath *cutoutPath;
     if (shape == SHAPE_CIRCLE)
         cutoutPath = [UIBezierPath bezierPathWithOvalInRect:rect];
     else if (shape == SHAPE_SQUARE)
         cutoutPath = [UIBezierPath bezierPathWithRect:rect];
     else
         cutoutPath = [UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:self.cutoutRadius];
-    
     
     [maskPath appendPath:cutoutPath];
     
@@ -175,8 +191,22 @@ NSString *const kContinueLabelText = @"Tap to continue";
 #pragma mark - Touch handler
 
 - (void)userDidTap:(UITapGestureRecognizer *)recognizer {
-    // Go to the next coach mark
-    [self goToCoachMarkIndexed:(markIndex+1)];
+    CGPoint p = [recognizer locationInView:self];
+    
+    NSDictionary *markDef = [self.coachMarks objectAtIndex:markIndex];
+    CGRect markRect = [[markDef objectForKey:@"rect"] CGRectValue];
+    
+    if (CGRectContainsPoint(markRect, p)) {
+        NSLog(@"got a tap in the region i care about");
+        // Go to the next coach mark
+        [self goToCoachMarkIndexed:(markIndex+1) isRotated:NO];
+        
+        if ([self.delegate respondsToSelector:@selector(coachMarksViewDidClicked:atIndex:)]) {
+            [self.delegate coachMarksViewDidClicked:self atIndex:markIndex];
+        }
+    } else {
+        NSLog(@"got a tap, but not where i need it");
+    }
 }
 
 #pragma mark - Navigation
@@ -191,12 +221,12 @@ NSString *const kContinueLabelText = @"Tap to continue";
                      }
                      completion:^(BOOL finished) {
                          // Go to the first coach mark
-                         [self goToCoachMarkIndexed:0];
+                         [self goToCoachMarkIndexed:0 isRotated:NO];
                      }];
 }
 
 - (void)skipCoach {
-    [self goToCoachMarkIndexed:self.coachMarks.count];
+    [self goToCoachMarkIndexed:self.coachMarks.count isRotated:NO];
 }
 
 - (void)handleSingleTap:(UITapGestureRecognizer *)recognizer {
@@ -214,8 +244,8 @@ NSString *const kContinueLabelText = @"Tap to continue";
     }
 }
 
-- (void)goToCoachMarkIndexed:(NSUInteger)index {
-    // Out of bounds
+- (void)goToCoachMarkIndexed:(NSUInteger)index isRotated: (BOOL)isRotated{
+    // Out of frame
     if (index >= self.coachMarks.count) {
         [self cleanup];
         return;
@@ -227,11 +257,7 @@ NSString *const kContinueLabelText = @"Tap to continue";
     // Coach mark definition
     NSDictionary *markDef = [self.coachMarks objectAtIndex:index];
     NSString *markCaption = [markDef objectForKey:@"caption"];
-    UIView *theView = [markDef objectForKey:@"theView"];
-    UIView *parentView = [markDef objectForKey:@"parentView"];
-    UIView *rootView = [markDef objectForKey:@"rootView"];
-    
-    CGRect markRect = [[NSValue valueWithCGRect: [parentView convertRect:theView.frame toView:rootView]] CGRectValue];
+    CGRect markRect = [[markDef objectForKey:@"rect"] CGRectValue];
     
     MaskShape shape = DEFAULT;
     if([[markDef allKeys] containsObject:@"shape"])
@@ -247,20 +273,9 @@ NSString *const kContinueLabelText = @"Tap to continue";
         self.cutoutRadius = kCutoutRadius;
     }
     
-    if ([self.delegate respondsToSelector:@selector(coachMarksViewDidClicked:atIndex:)]) {
-        [currentView removeFromSuperview];
-        currentView = [[UIView alloc] initWithFrame:markRect];
-        currentView.backgroundColor = [UIColor clearColor];
-        UITapGestureRecognizer *singleFingerTap =
-        [[UITapGestureRecognizer alloc] initWithTarget:self
-                                                action:@selector(handleSingleTap:)];
-        [currentView addGestureRecognizer:singleFingerTap];
-        [self addSubview:currentView];
-    }
-    
-    
     
     [self.arrowImage removeFromSuperview];
+    self.arrowImage = nil;
     BOOL showArrow = NO;
     if( [markDef objectForKey:@"showArrow"])
         showArrow = [[markDef objectForKey:@"showArrow"] boolValue];
@@ -278,13 +293,13 @@ NSString *const kContinueLabelText = @"Tap to continue";
     //Label Aligment and Position
     switch (labelAlignment) {
         case LABEL_ALIGNMENT_RIGHT:
-            x = floorf(self.bounds.size.width - self.lblCaption.frame.size.width - kLabelMargin);
+            x = floorf(self.frame.size.width - self.lblCaption.frame.size.width - kLabelMargin);
             break;
         case LABEL_ALIGNMENT_LEFT:
             x = kLabelMargin;
             break;
         default:
-            x = floorf((self.bounds.size.width - self.lblCaption.frame.size.width) / 2.0f);
+            x = floorf((self.frame.size.width - self.lblCaption.frame.size.width) / 2.0f);
             break;
     }
     
@@ -293,28 +308,29 @@ NSString *const kContinueLabelText = @"Tap to continue";
         {
             y = markRect.origin.y - self.lblCaption.frame.size.height - kLabelMargin;
             if(showArrow) {
+                x = markRect.origin.x + (markRect.size.width / 3);
                 self.arrowImage = [[UIImageView alloc] initWithImage:[self fetchImage:@"arrow-down"]];
+                self.arrowImage.alpha = .0f;
                 CGRect imageViewFrame = self.arrowImage.frame;
                 imageViewFrame.origin.x = x;
                 imageViewFrame.origin.y = y;
                 self.arrowImage.frame = imageViewFrame;
                 y -= (self.arrowImage.frame.size.height + kLabelMargin);
-                [self addSubview:self.arrowImage];
             }
         }
             break;
         case LABEL_POSITION_LEFT:
         {
             y = markRect.origin.y + markRect.size.height/2 - self.lblCaption.frame.size.height/2;
-            x = self.bounds.size.width - self.lblCaption.frame.size.width - kLabelMargin - markRect.size.width;
+            x = self.frame.size.width - self.lblCaption.frame.size.width - kLabelMargin - markRect.size.width;
             if(showArrow) {
                 self.arrowImage = [[UIImageView alloc] initWithImage:[self fetchImage:@"arrow-right"]];
+                self.arrowImage.alpha = .0f;
                 CGRect imageViewFrame = self.arrowImage.frame;
-                imageViewFrame.origin.x = self.bounds.size.width - self.arrowImage.frame.size.width - kLabelMargin - markRect.size.width;
+                imageViewFrame.origin.x = self.frame.size.width - self.arrowImage.frame.size.width - kLabelMargin - markRect.size.width;
                 imageViewFrame.origin.y = y + self.lblCaption.frame.size.height/2 - imageViewFrame.size.height/2;
                 self.arrowImage.frame = imageViewFrame;
                 x -= (self.arrowImage.frame.size.width + kLabelMargin);
-                [self addSubview:self.arrowImage];
             }
         }
             break;
@@ -331,35 +347,62 @@ NSString *const kContinueLabelText = @"Tap to continue";
         {
             y = markRect.origin.y + markRect.size.height + self.lblSpacing;
             CGFloat bottomY = y + self.lblCaption.frame.size.height + self.lblSpacing;
-            if (bottomY > self.bounds.size.height) {
+            if (bottomY > self.frame.size.height) {
                 y = markRect.origin.y - self.lblSpacing - self.lblCaption.frame.size.height;
             }
             x = markRect.origin.x + markRect.size.width + kLabelMargin;
             if(showArrow) {
                 self.arrowImage = [[UIImageView alloc] initWithImage:[self fetchImage:@"arrow-top"]];
+                self.arrowImage.alpha = .0f;
                 CGRect imageViewFrame = self.arrowImage.frame;
                 imageViewFrame.origin.x = x - markRect.size.width/2 - imageViewFrame.size.width/2;
                 imageViewFrame.origin.y = y - kLabelMargin; //self.lblCaption.frame.size.height/2
                 y += imageViewFrame.size.height/2;
                 self.arrowImage.frame = imageViewFrame;
-                [self addSubview:self.arrowImage];
             }
         }
             break;
+            
+        case LABEL_POSITION_BOTTOM:
+        {
+            y = markRect.origin.y + markRect.size.height + self.lblSpacing;
+            CGFloat bottomY = y + self.lblCaption.frame.size.height + self.lblSpacing;
+            if (bottomY > self.frame.size.height) {
+                y = markRect.origin.y - self.lblSpacing - self.lblCaption.frame.size.height;
+            }
+            if(showArrow) {
+                x = markRect.origin.x + (markRect.size.width / 3);
+                
+                if ((self.frame.size.width - x) < kMaxLblWidth) {
+                    x = floorf((self.frame.size.width - self.lblCaption.frame.size.width) / 2.0f);
+                    break;
+                }
+
+                self.arrowImage = [[UIImageView alloc] initWithImage:[self fetchImage:@"arrow-top"]];
+                self.arrowImage.alpha = .0f;
+                CGRect imageViewFrame = self.arrowImage.frame;
+                imageViewFrame.origin.x = x;
+                imageViewFrame.origin.y = y - kLabelMargin - 10; //self.lblCaption.frame.size.height/2
+                y += imageViewFrame.size.height/2;
+                self.arrowImage.frame = imageViewFrame;
+            }
+        }
+            break;
+            
         default: {
             y = markRect.origin.y + markRect.size.height + self.lblSpacing;
             CGFloat bottomY = y + self.lblCaption.frame.size.height + self.lblSpacing;
-            if (bottomY > self.bounds.size.height) {
+            if (bottomY > self.frame.size.height) {
                 y = markRect.origin.y - self.lblSpacing - self.lblCaption.frame.size.height;
             }
             if(showArrow) {
                 self.arrowImage = [[UIImageView alloc] initWithImage:[self fetchImage:@"arrow-top"]];
+                self.arrowImage.alpha = .0f;
                 CGRect imageViewFrame = self.arrowImage.frame;
                 imageViewFrame.origin.x = x;
                 imageViewFrame.origin.y = y;
                 self.arrowImage.frame = imageViewFrame;
                 y += (self.arrowImage.frame.size.height + kLabelMargin);
-                [self addSubview:self.arrowImage];
             }
         }
             break;
@@ -368,72 +411,88 @@ NSString *const kContinueLabelText = @"Tap to continue";
     // Animate the caption label
     self.lblCaption.frame = (CGRect){{x, y}, self.lblCaption.frame.size};
     
-    [UIView animateWithDuration:0.3f animations:^{
-        self.lblCaption.alpha = 1.0f;
-    }];
+    
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [UIView animateWithDuration:0.3f animations:^{
+            if (self.arrowImage) {
+                [self addSubview:self.arrowImage];
+                self.arrowImage.alpha = 1.0f;
+            }
+            self.lblCaption.alpha = 1.0f;
+        }];
+    });
+
     
     // Delegate (coachMarksView:willNavigateTo:atIndex:)
     if ([self.delegate respondsToSelector:@selector(coachMarksView:willNavigateToIndex:)]) {
         [self.delegate coachMarksView:self willNavigateToIndex:markIndex];
     }
     
-    // If first mark, set the cutout to the center of first mark
-    if (markIndex == 0) {
-        CGPoint center = CGPointMake(floorf(markRect.origin.x + (markRect.size.width / 2.0f)), floorf(markRect.origin.y + (markRect.size.height / 2.0f)));
-        CGRect centerZero = (CGRect){center, CGSizeZero};
-        [self setCutoutToRect:centerZero withShape:shape];
-    }
-    
-    // Animate the cutout
-    [self animateCutoutToRect:markRect withShape:shape];
-    
-    CGFloat lblContinueWidth = self.enableSkipButton ? (70.0/100.0) * self.bounds.size.width : self.bounds.size.width;
-    CGFloat btnSkipWidth = self.bounds.size.width - lblContinueWidth;
-    
-    // Show continue lbl if first mark
-    if (self.enableContinueLabel) {
+    if (NO == isRotated) {
+        // If first mark, set the cutout to the center of first mark
         if (markIndex == 0) {
-            lblContinue = [[UILabel alloc] initWithFrame:(CGRect){{0, [self yOriginForContinueLabel]}, {lblContinueWidth, 30.0f}}];
-            lblContinue.font = [UIFont boldSystemFontOfSize:13.0f];
-            lblContinue.textAlignment = NSTextAlignmentCenter;
-            lblContinue.text = self.continueLabelText;
-            lblContinue.alpha = 0.0f;
-            lblContinue.backgroundColor = [UIColor whiteColor];
-            [self addSubview:lblContinue];
-            [UIView animateWithDuration:0.3f delay:1.0f options:0 animations:^{
-                lblContinue.alpha = 1.0f;
-            } completion:nil];
-        } else if (markIndex > 0 && lblContinue != nil) {
-            // Otherwise, remove the lbl
-            [lblContinue removeFromSuperview];
-            lblContinue = nil;
+            CGPoint center = CGPointMake(floorf(markRect.origin.x + (markRect.size.width / 2.0f)), floorf(markRect.origin.y + (markRect.size.height / 2.0f)));
+            CGRect centerZero = (CGRect){center, CGSizeZero};
+            [self setCutoutToRect:centerZero withShape:shape];
         }
+        
+        // Animate the cutout
+        [self animateCutoutToRect:markRect withShape:shape];
     }
     
+    CGFloat lblContinueWidth = self.enableSkipButton ? (70.0/100.0) * self.frame.size.width : self.frame.size.width;
+    CGFloat btnSkipWidth = self.frame.size.width - lblContinueWidth;
+    
+//    // Show continue lbl if first mark
+//    if (self.enableContinueLabel) {
+//        if (markIndex == 0) {
+//            lblContinue = [[UILabel alloc] initWithFrame:(CGRect){{0, [self yOriginForContinueLabel]}, {lblContinueWidth, 30.0f}}];
+//            lblContinue.font = [UIFont boldSystemFontOfSize:13.0f];
+//            lblContinue.textAlignment = NSTextAlignmentCenter;
+//            lblContinue.text = self.continueLabelText;
+//            lblContinue.alpha = 0.0f;
+//            lblContinue.backgroundColor = [UIColor whiteColor];
+//            [self addSubview:lblContinue];
+//            [UIView animateWithDuration:0.3f delay:1.0f options:0 animations:^{
+//                lblContinue.alpha = 1.0f;
+//            } completion:nil];
+//        } else if (markIndex > 0 && lblContinue != nil) {
+//            // Otherwise, remove the lbl
+//            [lblContinue removeFromSuperview];
+//            lblContinue = nil;
+//        }
+//    }
+//    
     if (self.enableSkipButton) {
-        btnSkipCoach = [[UIButton alloc] initWithFrame:(CGRect){{lblContinueWidth, [self yOriginForContinueLabel]}, {btnSkipWidth, 30.0f}}];
-        [btnSkipCoach addTarget:self action:@selector(skipCoach) forControlEvents:UIControlEventTouchUpInside];
-        [btnSkipCoach setTitle:self.skipButtonText forState:UIControlStateNormal];
-        btnSkipCoach.titleLabel.font = [UIFont boldSystemFontOfSize:13.0f];
-        btnSkipCoach.alpha = 0.0f;
-        btnSkipCoach.tintColor = [UIColor whiteColor];
-        [self addSubview:btnSkipCoach];
-        [UIView animateWithDuration:0.3f delay:1.0f options:0 animations:^{
-            btnSkipCoach.alpha = 1.0f;
-        } completion:nil];
+        if (nil == btnSkipCoach) {
+            btnSkipCoach = [[UIButton alloc] initWithFrame:(CGRect){{lblContinueWidth, 20}, {btnSkipWidth, 30.0f}}];
+            btnSkipCoach.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleBottomMargin |
+            UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin |
+            UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
+
+            [btnSkipCoach addTarget:self action:@selector(skipCoach) forControlEvents:UIControlEventTouchUpInside];
+            [btnSkipCoach setTitle:self.skipButtonText forState:UIControlStateNormal];
+            btnSkipCoach.titleLabel.font = [UIFont boldSystemFontOfSize:13.0f];
+            btnSkipCoach.alpha = 0.0f;
+            btnSkipCoach.tintColor = [UIColor whiteColor];
+            [self addSubview:btnSkipCoach];
+            [UIView animateWithDuration:0.3f delay:1.0f options:0 animations:^{
+                btnSkipCoach.alpha = 1.0f;
+            } completion:nil];
+        }
     }
 }
 
-- (CGFloat)yOriginForContinueLabel {
-    switch (self.continueLocation) {
-        case LOCATION_TOP:
-            return 20.0f;
-        case LOCATION_CENTER:
-            return self.bounds.size.height / 2 - 15.0f;
-        default:
-            return self.bounds.size.height - 30.0f;
-    }
-}
+//- (CGFloat)yOriginForContinueLabel {
+//    switch (self.continueLocation) {
+//        case LOCATION_TOP:
+//            return 20.0f;
+//        case LOCATION_CENTER:
+//            return self.frame.size.height / 2 - 15.0f;
+//        default:
+//            return self.frame.size.height - 30.0f;
+//    }
+//}
 
 #pragma mark - Cleanup
 

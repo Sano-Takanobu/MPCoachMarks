@@ -66,7 +66,7 @@ typedef NS_ENUM(NSInteger, ContinueLocation) {
 
 @protocol MPCoachMarksViewDelegate;
 
-@interface MPCoachMarks : UIView
+@interface MPCoachMarks : UIView<CAAnimationDelegate>
 
 @property (nonatomic, MP_WEAK) id<MPCoachMarksViewDelegate> delegate;
 @property (nonatomic, strong) NSArray *coachMarks;
@@ -87,6 +87,7 @@ typedef NS_ENUM(NSInteger, ContinueLocation) {
 
 - (id)initWithFrame:(CGRect)frame coachMarks:(NSArray *)marks;
 - (void)start;
+- (void)animateCutoutToRect:(CGRect)rect withShape:(MaskShape)shape frame:(CGRect)frame;
 
 @end
 
