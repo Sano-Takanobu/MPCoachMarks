@@ -122,14 +122,21 @@ NSString *const kContinueLabelText = @"Tap to continue";
     self.hidden = YES;
 }
 
-- (void)animateCutoutToRect:(CGRect)rect withShape:(MaskShape)shape frame:(CGRect)frame{
+- (void)viewWillTransition:(CGRect)frame coachMarks:(NSArray *)marks{
     
+    self.coachMarks = marks;
     self.arrowImage.alpha = .0f;
     [self.arrowImage removeFromSuperview];
     self.arrowImage = nil;
     self.lblCaption.alpha = 0.0f;
 
-    [self animateCutoutToRect:rect withShape:shape];
+    CGRect markRect = [self.coachMarks[markIndex][@"rect"] CGRectValue];
+    MaskShape shape = DEFAULT;
+    if([[self.coachMarks[markIndex] allKeys] containsObject:@"shape"]) {
+        shape = [[self.coachMarks[markIndex] objectForKey:@"shape"] integerValue];
+    }
+
+    [self animateCutoutToRect:markRect withShape:shape];
     [self goToCoachMarkIndexed:(markIndex) isRotated:YES];
 }
 
@@ -206,6 +213,10 @@ NSString *const kContinueLabelText = @"Tap to continue";
         }
     } else {
         NSLog(@"got a tap, but not where i need it");
+        
+        if ([self.delegate respondsToSelector:@selector(nonCoachMarksViewDidClicked:atIndex:)]) {
+            [self.delegate nonCoachMarksViewDidClicked:self atIndex:markIndex];
+        }
     }
 }
 

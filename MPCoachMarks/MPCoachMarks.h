@@ -87,7 +87,7 @@ typedef NS_ENUM(NSInteger, ContinueLocation) {
 
 - (id)initWithFrame:(CGRect)frame coachMarks:(NSArray *)marks;
 - (void)start;
-- (void)animateCutoutToRect:(CGRect)rect withShape:(MaskShape)shape frame:(CGRect)frame;
+- (void)viewWillTransition:(CGRect)frame coachMarks:(NSArray *)marks;
 
 @end
 
@@ -99,5 +99,6 @@ typedef NS_ENUM(NSInteger, ContinueLocation) {
 - (void)coachMarksViewWillCleanup:(MPCoachMarks *)coachMarksView;
 - (void)coachMarksViewDidCleanup:(MPCoachMarks *)coachMarksView;
 - (void)coachMarksViewDidClicked:(MPCoachMarks *)coachMarksView atIndex:(NSInteger)index;
+- (void)nonCoachMarksViewDidClicked:(MPCoachMarks *)coachMarksView atIndex:(NSInteger)index;
 
 @end
