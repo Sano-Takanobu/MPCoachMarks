@@ -88,7 +88,7 @@ typedef NS_ENUM(NSInteger, ContinueLocation) {
 - (id)initWithFrame:(CGRect)frame coachMarks:(NSArray *)marks;
 - (void)start;
 - (void)viewWillTransition:(CGRect)frame coachMarks:(NSArray *)marks;
-
+- (void)skipCoach;
 @end
 
 @protocol MPCoachMarksViewDelegate <NSObject>

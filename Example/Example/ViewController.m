@@ -142,4 +142,8 @@
     
 }
 
+- (void)coachMarksViewDidCleanup:(MPCoachMarks *)coachMarksView {
+    
+}
+
 @end
