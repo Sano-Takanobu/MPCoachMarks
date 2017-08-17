@@ -110,6 +110,8 @@
     NSArray *coachMarks = [self setupTutorial];
     _coachMarksView = [[MPCoachMarks alloc] initWithFrame:self.navigationController.view.bounds coachMarks:coachMarks];
     _coachMarksView.delegate = self;
+//    _coachMarksView.enableMarkTap = NO;
+    
     [self.navigationController.view addSubview:_coachMarksView];
 
     [_coachMarksView start];

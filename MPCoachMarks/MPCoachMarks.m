@@ -17,6 +17,7 @@ static const CGFloat kLabelMargin = 5.0f;
 static const CGFloat kMaskAlpha = 0.75f;
 static const BOOL kEnableContinueLabel = YES;
 static const BOOL kEnableSkipButton = YES;
+static const BOOL kEnableMarkTap = YES;
 NSString *const kSkipButtonText = @"スキップ";
 NSString *const kContinueLabelText = @"Tap to continue";
 
@@ -40,6 +41,7 @@ NSString *const kContinueLabelText = @"Tap to continue";
 @synthesize lblSpacing;
 @synthesize enableContinueLabel;
 @synthesize enableSkipButton;
+@synthesize enableMarkTap;
 @synthesize continueLabelText;
 @synthesize skipButtonText;
 @synthesize arrowImage;
@@ -91,6 +93,7 @@ NSString *const kContinueLabelText = @"Tap to continue";
     self.lblSpacing = kLblSpacing;
     self.enableContinueLabel = kEnableContinueLabel;
     self.enableSkipButton = kEnableSkipButton;
+    self.enableMarkTap = kEnableMarkTap;
     self.continueLabelText = kContinueLabelText;
     self.skipButtonText = kSkipButtonText;
     
@@ -198,24 +201,33 @@ NSString *const kContinueLabelText = @"Tap to continue";
 #pragma mark - Touch handler
 
 - (void)userDidTap:(UITapGestureRecognizer *)recognizer {
-    CGPoint p = [recognizer locationInView:self];
-    
-    NSDictionary *markDef = [self.coachMarks objectAtIndex:markIndex];
-    CGRect markRect = [[markDef objectForKey:@"rect"] CGRectValue];
-    
-    if (CGRectContainsPoint(markRect, p)) {
-        NSLog(@"got a tap in the region i care about");
+    if (self.enableMarkTap) {
+        CGPoint p = [recognizer locationInView:self];
+        
+        NSDictionary *markDef = [self.coachMarks objectAtIndex:markIndex];
+        CGRect markRect = [[markDef objectForKey:@"rect"] CGRectValue];
+        
+        if (CGRectContainsPoint(markRect, p)) {
+            NSLog(@"got a tap in the region i care about");
+            // Go to the next coach mark
+            [self goToCoachMarkIndexed:(markIndex+1) isRotated:NO];
+            
+            if ([self.delegate respondsToSelector:@selector(coachMarksViewDidClicked:atIndex:)]) {
+                [self.delegate coachMarksViewDidClicked:self atIndex:markIndex];
+            }
+        } else {
+            NSLog(@"got a tap, but not where i need it");
+            
+            if ([self.delegate respondsToSelector:@selector(nonCoachMarksViewDidClicked:atIndex:)]) {
+                [self.delegate nonCoachMarksViewDidClicked:self atIndex:markIndex];
+            }
+        }
+    }else {
         // Go to the next coach mark
         [self goToCoachMarkIndexed:(markIndex+1) isRotated:NO];
         
         if ([self.delegate respondsToSelector:@selector(coachMarksViewDidClicked:atIndex:)]) {
             [self.delegate coachMarksViewDidClicked:self atIndex:markIndex];
-        }
-    } else {
-        NSLog(@"got a tap, but not where i need it");
-        
-        if ([self.delegate respondsToSelector:@selector(nonCoachMarksViewDidClicked:atIndex:)]) {
-            [self.delegate nonCoachMarksViewDidClicked:self atIndex:markIndex];
         }
     }
 }

@@ -80,6 +80,7 @@ typedef NS_ENUM(NSInteger, ContinueLocation) {
 @property (nonatomic) CGFloat lblSpacing;
 @property (nonatomic) BOOL enableContinueLabel;
 @property (nonatomic) BOOL enableSkipButton;
+@property (nonatomic) BOOL enableMarkTap;
 @property (nonatomic, copy) NSString *continueLabelText;
 @property (nonatomic, copy) NSString *skipButtonText;
 @property (nonatomic) ContinueLocation continueLocation;
