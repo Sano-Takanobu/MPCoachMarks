@@ -125,6 +125,11 @@ NSString *const kContinueLabelText = @"Tap to continue";
     self.hidden = YES;
 }
 
+- (void)viewWillTransition:(CGRect)frame coachMarks:(NSArray *)marks changeIndex:(NSInteger)changeIndex {
+    markIndex = changeIndex;
+    [self viewWillTransition:frame coachMarks:marks];
+}
+
 - (void)viewWillTransition:(CGRect)frame coachMarks:(NSArray *)marks{
     
     self.coachMarks = marks;
@@ -208,13 +213,14 @@ NSString *const kContinueLabelText = @"Tap to continue";
         CGRect markRect = [[markDef objectForKey:@"rect"] CGRectValue];
         
         if (CGRectContainsPoint(markRect, p)) {
-            NSLog(@"got a tap in the region i care about");
-            // Go to the next coach mark
-            [self goToCoachMarkIndexed:(markIndex+1) isRotated:NO];
             
             if ([self.delegate respondsToSelector:@selector(coachMarksViewDidClicked:atIndex:)]) {
                 [self.delegate coachMarksViewDidClicked:self atIndex:markIndex];
             }
+
+            NSLog(@"got a tap in the region i care about");
+            // Go to the next coach mark
+            [self goToCoachMarkIndexed:(markIndex+1) isRotated:NO];
         } else {
             NSLog(@"got a tap, but not where i need it");
             
